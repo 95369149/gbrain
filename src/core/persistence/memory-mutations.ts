@@ -156,7 +156,11 @@ export async function submitRememberMutation(ctx: OperationContext, params: Reco
   const resolved = entity ? await resolveEntitySlugWithSource(ctx.engine, sourceId, entity) : null;
   const inference = entity === null ? await inferRememberTarget(ctx, sourceId, source, p) : null;
   const linked = inference && 'target' in inference ? inference : null;
-  const entitySlug = linked?.target.slug ?? resolved?.slug ?? null;
+  // A resolver fallback can legitimately be empty for non-Latin-only names
+  // because slugify currently emits the ASCII-safe slug alphabet. Treat that
+  // as an unresolved entity rather than passing an empty page slug into the
+  // persistence layer. (hermes local fix, carried from 1ef7976ea)
+  const entitySlug = linked?.target.slug || (resolved?.slug?.trim() || null);
   // A source-scoped absent identity serializes subjectless facts. Bound writers
   // cannot use it to escape their namespace grant.
   const { slug, authority, snapshot, fence, binding, writeThrough } = linked?.target ?? await planRememberTarget(ctx, sourceId, source, entitySlug, null);
